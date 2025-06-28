@@ -5,45 +5,87 @@ TO_INSTALL_PACKAGES=(
     docker-compose
     ufw
 )
+TO_ALLOW_PORTS=(
+    22/tcp  # SSH
+    80/tcp  # HTTP
+    443/tcp # HTTPS
+)
 
+ERR="[error] -"
+INF="[info] -"
+
+DOCKER_VOLUME_NAME="hello-world-volume"
+
+# ERROR HANDLING
+set -e
+
+if ! systemctl is-active --quiet docker; then
+    echo "$ERR Docker is not running. Starting Up."
+    start_docker
+else
+    echo "$INF Docker is running."
+fi
+
+if sudo docker volume ls | grep -q "$DOCKER_VOLUME_NAME"; then
+    echo "$ERR Docker volume '$DOCKER_VOLUME_NAME' already exists, skipping creation..."
+else
+    create_docker_volume
+fi
+
+# FUNCTIONS
 # Function to install packages
 install_packages() {
     for package in "${TO_INSTALL_PACKAGES[@]}"; do
         if dpkg -l | grep -q "$package"; then
-            echo "[INFO] - $package is already installed, skipping..."
+            echo "$INF $package is already installed, skipping..."
         else
-            echo "[INFO] - Installing $package..."
+            echo "$INF Installing $package..."
             sudo apt install -y "$package"
-            echo "[INFO] - $package installed successfully."
+            echo "$INF $package installed successfully."
         fi
     done
 }
 
+
 # Function to configure UFW
 configure_ufw() {
     sudo ufw enable
-    echo "[INFO] - UFW enabled."
-    echo "[INFO] - Configuring UFW..."
-    sudo ufw allow 22/tcp  # SSH
-    sudo ufw allow 80/tcp  # HTTP
-    sudo ufw allow 443/tcp # HTTPS
+    echo "$INF UFW enabled."
+    echo "$INF Configuring UFW..."
+    for port in "${TO_ALLOW_PORTS[@]}"
+    do
+        if ! sudo ufw status | grep -q "$port";
+        then
+            echo "$INF Allowing port $port..."
+            sudo ufw allow "$port"
+        else
+            echo "$INF Port $port is already allowed."
+        fi
+    done
+    sudo ufw reload
+    echo "$INF UFW configuration completed."
 }
 
-# Function to Create a Docker Persistent Volume
+start_docker() {
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    echo "$INF Docker has been started and enabled to run on next boot."
+}
+
 create_docker_volume() {
-    VOLUME_NAME="hello-world-volume"
-    if sudo docker volume ls | grep -q "$VOLUME_NAME"; then
-        echo "[INFO] - Docker volume '$VOLUME_NAME' already exists, skipping creation..."
-    else
-        echo "[INFO] - Creating Docker volume '$VOLUME_NAME'..."
-        sudo docker volume create "$VOLUME_NAME"
-        echo "[INFO] - Docker volume '$VOLUME_NAME' created successfully."
-    fi
+    echo "$INF Creating Docker volume '$DOCKER_VOLUME_NAME'..."
+    sudo docker volume create "$DOCKER_VOLUME_NAME"
+    echo "$INF Docker volume '$DOCKER_VOLUME_NAME' created successfully."
 }
 
-# Main script execution
-echo "[INFO] - Starting installation and configuration..."
-install_packages
-configure_ufw
-create_docker_volume
-echo "[INFO] - Installation and configuration completed successfully."
+
+# MAIN FUNCTION
+main() {
+    echo "$INF Starting installation and configuration..."
+    install_packages
+    configure_ufw
+    create_docker_volume
+    echo "$INF Installation and configuration completed successfully."
+}
+
+main
