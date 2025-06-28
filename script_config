@@ -1,0 +1,66 @@
+#!/bin/bash
+
+#Global Variables
+APT_PACKAGES=(
+    curl
+    git
+    ufw
+    htop
+    docker.io
+    docker-compose
+)
+
+INF="[INFO] -"
+ERR="[ERROR] -"
+
+USER_NAME=""
+
+#Functions
+update_packages() {
+    sudo apt update && sudo apt upgrade -y
+    echo "$INF System packages updated successfully."
+}
+
+install_packages() {
+    for package in ${APT_PACKAGES[@]};
+    do
+        if dpkg -l | grep -q "$package"; then
+            echo "$INF $package is already installed, skipping..."
+        else
+            echo "$INF Installing $package..."
+            sudo apt install -y "$package"
+            echo "$INF $package installed successfully."
+        fi
+    done
+}
+
+create_sudo_user() {
+    read -p "Enter the username for the new sudo user: " USER_NAME
+
+    if ! grep -q "^$USER_NAME" /etc/passwd; then
+        echo "$INF Creating $USER_NAME user"
+        sudo useradd -m "$USER_NAME"
+        echo "$INF User $USER_NAME created successfully."
+        sudo passwd "$USER_NAME"
+
+    else
+        echo "$ERR User $USER_NAME already exists, skipping creation..."
+    fi
+
+    sudo_user
+}
+
+sudo_user() {
+    if ! groups "$USER_NAME" | grep -q -E 'sudo|wheel'; then
+        echo "$INF Giving sudo permission to the user $USER_NAME"
+        sudo usermod -aG sudo "$USER_NAME"
+        echo "$INF User $USER_NAME has been created and granted sudo access."
+    else
+        echo "$INF User $USER_NAME already created and has sudo access."
+    fi
+}
+
+#Functions executions
+update_packages
+install_packages
+create_sudo_user
