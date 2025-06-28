@@ -1,0 +1,49 @@
+#!/bin/bash
+
+TO_INSTALL_PACKAGES=(
+    docker.io
+    docker-compose
+    ufw
+)
+
+# Function to install packages
+install_packages() {
+    for package in "${TO_INSTALL_PACKAGES[@]}"; do
+        if dpkg -l | grep -q "$package"; then
+            echo "[INFO] - $package is already installed, skipping..."
+        else
+            echo "[INFO] - Installing $package..."
+            sudo apt install -y "$package"
+            echo "[INFO] - $package installed successfully."
+        fi
+    done
+}
+
+# Function to configure UFW
+configure_ufw() {
+    sudo ufw enable
+    echo "[INFO] - UFW enabled."
+    echo "[INFO] - Configuring UFW..."
+    sudo ufw allow 22/tcp  # SSH
+    sudo ufw allow 80/tcp  # HTTP
+    sudo ufw allow 443/tcp # HTTPS
+}
+
+# Function to Create a Docker Persistent Volume
+create_docker_volume() {
+    VOLUME_NAME="hello-world-volume"
+    if sudo docker volume ls | grep -q "$VOLUME_NAME"; then
+        echo "[INFO] - Docker volume '$VOLUME_NAME' already exists, skipping creation..."
+    else
+        echo "[INFO] - Creating Docker volume '$VOLUME_NAME'..."
+        sudo docker volume create "$VOLUME_NAME"
+        echo "[INFO] - Docker volume '$VOLUME_NAME' created successfully."
+    fi
+}
+
+# Main script execution
+echo "[INFO] - Starting installation and configuration..."
+install_packages
+configure_ufw
+create_docker_volume
+echo "[INFO] - Installation and configuration completed successfully."
